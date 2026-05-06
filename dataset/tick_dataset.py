@@ -1,6 +1,7 @@
-from demoparser2 import DemoParser
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+from demoparser2 import DemoParser
 
 
 def generate_tick_dataset(demo_path: str, output_dir: str):

@@ -10,7 +10,6 @@ def entry_kill_stats():
     entry_deaths = []
 
     for _, r in rounds.iterrows():
-
         start_tick = r["tick"]
 
         # kille po starcie rundy

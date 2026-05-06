@@ -1,5 +1,6 @@
-import pandas as pd
 import math
+
+import pandas as pd
 
 
 def angle_between(p1x, p1y, p2x, p2y):
@@ -23,7 +24,6 @@ def reaction_time_advanced(player_name):
     reaction_times = []
 
     for _, fire in fires.iterrows():
-
         if fire["user_name"] != player_name:
             continue
 
@@ -39,12 +39,10 @@ def reaction_time_advanced(player_name):
         yaw = pt.iloc[0]["yaw"]
 
         enemies = ticks[
-            (ticks["tick"] == fire_tick) &
-            (ticks["team_name"] != pt.iloc[0]["team_name"])
+            (ticks["tick"] == fire_tick) & (ticks["team_name"] != pt.iloc[0]["team_name"])
         ]
 
         for _, enemy in enemies.iterrows():
-
             ex = enemy["X"]
             ey = enemy["Y"]
 

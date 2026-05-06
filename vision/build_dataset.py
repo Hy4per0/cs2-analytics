@@ -1,6 +1,6 @@
 import os
-from frame_extractor import extract_frames
 
+from frame_extractor import extract_frames
 
 CLIPS_FOLDER = "vision/clips"
 OUTPUT_FOLDER = "vision/frames"
@@ -11,7 +11,6 @@ def build_dataset():
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
     for file in os.listdir(CLIPS_FOLDER):
-
         if not file.endswith(".mp4"):
             continue
 

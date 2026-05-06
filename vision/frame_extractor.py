@@ -1,5 +1,6 @@
-import cv2
 import os
+
+import cv2
 
 
 def extract_frames(video_path, output_folder, fps=5):
@@ -15,13 +16,11 @@ def extract_frames(video_path, output_folder, fps=5):
     saved_count = 0
 
     while True:
-
         ret, frame = cap.read()
         if not ret:
             break
 
         if frame_count % frame_interval == 0:
-
             filename = f"{saved_count:06d}.jpg"
             path = os.path.join(output_folder, filename)
 

@@ -23,11 +23,6 @@ def _point_in_polygon(x: float, y: float, polygon: list[tuple[float, float]]) ->
     return inside
 
 
-from pathlib import Path
-from awpy.data import NAVS_DIR
-from awpy.nav import Nav
-
-
 nav_cache = {}
 
 
@@ -45,7 +40,6 @@ def get_zone(map_name: str, x: float, y: float) -> str:
     nav = load_nav(map_name)
 
     for area in nav.areas.values():
-
         xs = [corner.x for corner in area.corners]
         ys = [corner.y for corner in area.corners]
 

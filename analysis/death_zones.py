@@ -1,4 +1,5 @@
 import pandas as pd
+
 from utils.map_zones_awpy import get_zone
 
 
@@ -15,13 +16,10 @@ def death_zone_stats(player_name):
     player_ticks = ticks[ticks["name"] == player_name]
 
     for _, row in deaths.iterrows():
-
         death_tick = row["tick"]
 
         # znajdź najbliższy tick
-        closest = player_ticks.iloc[
-            (player_ticks["tick"] - death_tick).abs().argsort()[:1]
-        ]
+        closest = player_ticks.iloc[(player_ticks["tick"] - death_tick).abs().argsort()[:1]]
 
         if closest.empty:
             continue

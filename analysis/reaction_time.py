@@ -11,8 +11,6 @@ def reaction_time(player_name):
     reaction_times = []
 
     for _, kill in kills.iterrows():
-
-        victim = kill["user_name"]
         attacker = kill["attacker_name"]
         tick = kill["tick"]
 
