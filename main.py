@@ -1,6 +1,6 @@
 from analysis.reaction_time_advanced import reaction_time_advanced
-from dataset.tick_dataset import generate_tick_dataset
-from parser.parse_demo import parse_demo
+from cs2_analytics.parser.parse_demo import parse_demo
+from cs2_analytics.parser.tick_dataset import generate_tick_dataset
 
 demo_path = "demos/13-03-2026_Inf_3Stack.dem"
 output_dir = "parsed"
