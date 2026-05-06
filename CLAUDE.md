@@ -9,77 +9,120 @@ Two-stage Counter-Strike 2 analytics project:
 1. **Demo analysis** — parses `.dem` files into parquet tables, then computes player statistics (heatmaps, death zones, entry kills, reaction time).
 2. **Computer vision** — extracts frames from gameplay clips and trains a YOLOv11 segmentation model to detect players.
 
-`main.py` is the orchestrator for the demo-analysis pipeline. Lines are commented in/out to toggle which steps run; treat it as a scratch driver, not a CLI.
+Everything is invoked through the `cs2-analytics` console script. There is no `main.py` scratch driver — every operation is a CLI subcommand.
 
-## Two virtual environments (important)
+## Single virtual environment
 
-The project uses **two separate venvs** because the analysis stack and the vision stack have incompatible Python versions:
+One `uv`-managed venv on **Python 3.11** holds both the analysis stack and the vision stack. `pyproject.toml` declares dependencies; `uv.lock` pins their resolved versions. Running `uv sync --extra dev` from a fresh clone produces a working environment, including CUDA-enabled `torch` from the PyTorch CU121 index.
 
-| Venv | Python | Purpose | Key packages |
-|------|--------|---------|--------------|
-| `.venv/` | 3.13 | Demo parsing & analysis | `awpy`, `demoparser2`, `pandas`, `matplotlib`, `polars`, `pyarrow` |
-| `scripts/` | 3.11 | YOLO training / inference | `torch+cu121`, `torchvision`, `ultralytics`, `opencv-python` |
-
-`scripts/` looks like a source directory but is actually a venv (it has `pyvenv.cfg`, `Scripts/python.exe`, `Lib/site-packages`). Do **not** put project code in it.
-
-Activation (PowerShell):
 ```powershell
-.\.venv\Scripts\Activate.ps1       # for main.py and analysis/
-.\scripts\Scripts\Activate.ps1     # for vision/ training/inference
+uv sync --extra dev
+uv run python -c "import torch; print(torch.cuda.is_available())"  # must print True
 ```
 
-When running anything that imports `awpy`/`demoparser2`/`pandas`, use `.venv`. When running anything that imports `ultralytics`/`torch`/`cv2`, use `scripts`.
+Older copies of this project had two venvs (`.venv/` Python 3.13 for analysis, `scripts/` Python 3.11 for vision). Both are gone; only one `.venv/` remains, on 3.11.
 
 ## Common commands
 
-Run the analysis pipeline (uses `.venv`):
+All operations:
+
 ```powershell
-python main.py
+uv run cs2-analytics --help                                                      # list subcommands
+
+# Parsing (demo → parquet)
+uv run cs2-analytics parse demos/<file>.dem [--output-dir parsed/]
+uv run cs2-analytics ticks demos/<file>.dem [--output-dir parsed/] [--sample-rate 16]
+
+# Analysis (over parsed parquet — parse+ticks must run first)
+uv run cs2-analytics analyze rounds
+uv run cs2-analytics analyze death-zones --player <name> --map <map>
+uv run cs2-analytics analyze entry-kills
+uv run cs2-analytics analyze reaction-time --player <name> [--advanced]
+
+# Visualization
+uv run cs2-analytics visualize heatmap --player <name> --map <map>
+
+# Vision pipeline
+uv run cs2-analytics vision extract <clips-dir> [--out vision/frames/] [--fps 5]
+uv run cs2-analytics vision build-dataset
 ```
 
-Build the vision dataset (frames from clips; uses `scripts` venv):
+YOLO training and inference still go through Ultralytics directly:
+
 ```powershell
-cd vision; python build_dataset.py
+uv run yolo segment train model=yolo11s-seg.pt data=vision/dataset.yaml epochs=50 imgsz=640 batch=16 device=0
+uv run yolo segment predict model=cs2_player_segmentation.pt source=vision/clips/<file>.mp4
 ```
 
-Train the YOLO segmentation model (uses `scripts` venv):
-```powershell
-yolo segment train model=yolo11s-seg.pt data=vision/dataset.yaml epochs=50 imgsz=640 batch=16 device=0
-```
-Trained weights land in `runs/segment/train*/weights/`. The repo's `cs2_player_segmentation.pt` is the latest fine-tuned checkpoint; `yolo11s-seg.pt` is the upstream base. Training args from the most recent run are preserved in `runs/segment/train/args.yaml`.
+Trained weights land in `runs/segment/train*/weights/`. `cs2_player_segmentation.pt` (Git-LFS-tracked) is the latest fine-tuned checkpoint; `yolo11s-seg.pt` (gitignored) is the upstream base, re-downloaded by Ultralytics on first use.
 
-Run inference:
+## Development
+
 ```powershell
-yolo segment predict model=cs2_player_segmentation.pt source=vision/clips/<file>.mp4
+uv run pytest          # 10 tests as of foundation merge
+uv run ruff check      # lint
+uv run ruff format     # auto-format
 ```
 
-There are no tests, linter config, or build system.
+Branch workflow: `main` is the only long-lived branch. Feature work happens on `feature/<name>` branches and merges via PR.
+
+## Package layout
+
+```
+src/cs2_analytics/
+├── cli.py                    # argparse subcommand dispatcher (entry point: cs2-analytics)
+├── data/repository.py        # ParsedDataRepository — sole point of parquet access
+├── parser/
+│   ├── parse_demo.py         # parse_demo(demo_path) -> dict[str, DataFrame]
+│   └── tick_dataset.py       # generate_tick_dataset(demo_path, sample_rate=16) -> DataFrame
+├── analysis/
+│   ├── death_zones.py        # death_zone_stats(repo, player_name, map_name)
+│   ├── entry_kills.py        # entry_kill_stats(repo)
+│   ├── reaction_time.py      # reaction_time(repo, player_name)
+│   ├── reaction_time_advanced.py  # reaction_time_advanced(repo, player_name)
+│   └── round_analyzer.py     # analyze_rounds(repo)
+├── visualization/heatmap.py  # player_heatmap_map(repo, player_name, map_name) — awpy adapter (plot)
+├── utils/maps.py             # get_zone(map_name, x, y), load_nav(map_name) — awpy adapter (nav)
+└── vision/
+    ├── frame_extractor.py    # extract_frames(video_path, output_folder, fps=5)
+    └── build_dataset.py      # build_dataset() — iterates vision/clips/ with hardcoded paths
+```
+
+Tests live in `tests/`. Output / data folders (`parsed/`, `runs/`, `vision/clips/`, `vision/frames/`, `vision/dataset/`, `demos/*.dem`) are gitignored.
 
 ## Data flow
 
 ```
-demos/*.dem ──► parser.parse_demo ─────► parsed/{kills,damage,rounds,weapon_fire}.parquet
+demos/*.dem ──► parse_demo  ─────► (DataFrames) ──► repo.save_kills/damage/rounds/weapon_fire
             ╲
-             ╲► dataset.tick_dataset ──► parsed/ticks.parquet  (downsampled: tick % 16 == 0)
+             ╲► tick_dataset ─────► (DataFrame) ──► repo.save_ticks
+                                                        │
+                              parsed/*.parquet ◄────────┘
+                                    │
+                                    ▼
+                         repo.get_kills/damage/rounds/weapon_fire/ticks
+                                    │
+                  ┌─────────────────┼─────────────────┐
+                  ▼                 ▼                 ▼
+              analysis/*       visualization     (future: storage,
+            (console stats)      (matplotlib       Flask UI, batch)
+                                + awpy plot)
 
-parsed/*.parquet ──► analysis/*           (console stats)
-                 ╲
-                  ╲► visualization.heatmap (matplotlib over awpy map render)
-
-vision/clips/*.mp4 ──► frame_extractor ──► vision/frames/<clip>/*.jpg
-                                       ──► (manual YOLO labels) ──► vision/dataset/{images,labels}/train
-                                       ──► YOLO training ──► cs2_player_segmentation.pt
+vision/clips/*.mp4 ──► extract_frames ──► vision/frames/<clip>/*.jpg
+                                      ──► (manual YOLO labels) ──► vision/dataset/{images,labels}/train
+                                      ──► YOLO training ──► cs2_player_segmentation.pt
 ```
 
-The analysis modules (`analysis/`, `visualization/`, `utils/map_zones_awpy.py`) read parquet files directly from `parsed/`. They do not take the demo as input — `parse_demo` and `tick_dataset` must run first. Paths are relative, so always run scripts from the project root.
+Analysis and visualization modules **never** call `pd.read_parquet` or construct parquet paths. They take a `ParsedDataRepository` instance and use its `get_*` methods. The repository is the only module that knows the on-disk layout, which makes the storage backend swappable later.
 
 ## Module conventions
 
-- **Module folders have no `__init__.py`.** They rely on Python 3 namespace packages — adding empty `__init__.py` files is unnecessary, but be aware that imports like `from parser.parse_demo import parse_demo` only work when CWD is the project root.
-- **Player identity is matched by name string** (e.g. `"AngelsHy4per"`) across `kills.user_name`, `kills.attacker_name`, `ticks.name`, `weapon_fire.user_name`. There's no steam-id join.
-- **Tick alignment** between events and `ticks.parquet` is approximate — events fire on every tick, but `ticks.parquet` only stores every 16th tick. `analysis/death_zones.py` handles this by finding the closest tick; `analysis/reaction_time_advanced.py` does an exact match and silently drops events that fall on unsampled ticks.
-- **Map names** follow Source convention (`de_inferno`, `de_dust2`, `de_mirage`, `de_overpass`). `awpy` resolves these to nav meshes via `NAVS_DIR`. `analysis/death_zones.py` has `de_inferno` hardcoded — change it there if analyzing other maps.
-- **Demo path is hardcoded** in `main.py`. To analyze a different demo, edit `demo_path` directly.
+- **Real packages with `__init__.py` files.** No more namespace-package quirks; imports work from anywhere.
+- **All analyses take `(repo, ...)` as their first argument.** Adding a new analysis means adding a new file under `cs2_analytics/analysis/` and registering one entry in `cli.py`'s analyze dispatch (OCP).
+- **Player identity is matched by name string** (e.g. `"AngelsHy4per"`) across `kills.user_name`, `kills.attacker_name`, `ticks.name`, `weapon_fire.user_name`. There is no steam-id join. Migrating to SteamID is a known future concern (not on the foundation).
+- **Tick alignment** between events and `ticks.parquet` is approximate — events fire on every tick, but `ticks.parquet` only stores every 16th tick by default. `analysis/death_zones.py` handles this by finding the closest tick; `analysis/reaction_time_advanced.py` does an exact match and silently drops events that fall on unsampled ticks.
+- **Map names** follow Source convention (`de_inferno`, `de_dust2`, `de_mirage`, `de_overpass`). The `awpy` adapter (`cs2_analytics/utils/maps.py`) resolves them to nav meshes via `NAVS_DIR`.
+- **`demoparser2 0.41.x` field names**: player view-angle fields are `yaw` / `pitch`, not `view_angle_yaw` / `view_angle_pitch`. Older releases used the longer names; if you upgrade beyond 0.41.x, double-check the field names in `parser/tick_dataset.py` and `analysis/reaction_time_advanced.py`.
 
 ## Vision dataset layout
 
@@ -87,7 +130,7 @@ The analysis modules (`analysis/`, `visualization/`, `utils/map_zones_awpy.py`) 
 
 ## Info
 
-Just so you know `cs2_player_segmentation.pt` is a model that is trained on different skins and models disponible in cs2. It was trained with Source Viewer or something like that.
+`cs2_player_segmentation.pt` is a fine-tuned YOLOv11 segmentation checkpoint trained on CS2 player models / skins (built initially with Source Viewer). It is **Git-LFS-tracked** (~58 MB); a fresh clone with `git lfs install` configured will pull it automatically.
 
 ## Architecture
 
@@ -98,3 +141,10 @@ Apply SOLID principles, with these three design patterns as the project's struct
 - **Adapter** — `awpy` is only imported in two adapter modules: `cs2_analytics.utils.maps` (nav meshes) and `cs2_analytics.visualization.heatmap` (map rendering). The rest of the codebase imports from these adapters, never `awpy.*` directly.
 
 SOLID applied concretely: parsers parse only (SRP — persistence is the repository's job); new analyses live in new files registered in the CLI dispatch table (OCP — no modification to existing analyses); analyses depend on the repository interface and the awpy adapters (DIP — not on filesystem paths or `awpy.*` internals). LSP/ISP are not artificially chased in mostly-procedural code.
+
+## Where to look first
+
+- **Roadmap & current state**: `STATUS.md` (project root)
+- **Foundation spec**: `docs/superpowers/specs/2026-05-06-foundation-design.md`
+- **Foundation execution plan**: `docs/superpowers/plans/2026-05-06-foundation.md`
+- **Tests**: `tests/test_repository.py`, `tests/test_cli.py`, `tests/test_smoke.py`
