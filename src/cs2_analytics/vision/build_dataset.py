@@ -1,6 +1,6 @@
 import os
 
-from frame_extractor import extract_frames
+from cs2_analytics.vision.frame_extractor import extract_frames
 
 CLIPS_FOLDER = "vision/clips"
 OUTPUT_FOLDER = "vision/frames"
