@@ -1060,8 +1060,8 @@ def generate_tick_dataset(demo_path: str, sample_rate: int = 16) -> pd.DataFrame
                 "active_weapon_name",
                 "velocity_X",
                 "velocity_Y",
-                "view_angle_yaw",
-                "view_angle_pitch",
+                "yaw",
+                "pitch",
             ]
         )
     )
