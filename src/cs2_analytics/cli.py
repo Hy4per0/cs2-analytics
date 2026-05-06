@@ -74,9 +74,12 @@ def _add_analyze(sub: argparse._SubParsersAction) -> None:
     rounds.set_defaults(handler=_handle_analyze_rounds)
 
     dz = leaf.add_parser("death-zones", help="Where a player dies most often")
-    dz.add_argument("--player", required=True, help="Player name (e.g. AngelsHy4per)")
+    dz.add_argument("--player", required=True, help="Player name as it appears in the demo")
     dz.add_argument(
-        "--map", dest="map_name", required=True, help="Map name (e.g. de_inferno)"
+        "--map",
+        dest="map_name",
+        required=True,
+        help="Source map name (e.g. de_dust2, de_mirage)",
     )
     dz.set_defaults(handler=_handle_analyze_death_zones)
 
