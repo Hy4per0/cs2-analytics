@@ -1,24 +1,22 @@
 import pandas as pd
 
+from cs2_analytics.data.repository import ParsedDataRepository
 from cs2_analytics.utils.maps import get_zone
 
 
-def death_zone_stats(player_name):
-
-    kills = pd.read_parquet("parsed/kills.parquet")
-    ticks = pd.read_parquet("parsed/ticks.parquet")
+def death_zone_stats(repo: ParsedDataRepository, player_name: str, map_name: str) -> None:
+    kills = repo.get_kills()
+    ticks = repo.get_ticks()
 
     deaths = kills[kills["user_name"] == player_name]
 
     zones = []
 
-    # ticki tylko dla tego gracza
     player_ticks = ticks[ticks["name"] == player_name]
 
     for _, row in deaths.iterrows():
         death_tick = row["tick"]
 
-        # znajdź najbliższy tick
         closest = player_ticks.iloc[(player_ticks["tick"] - death_tick).abs().argsort()[:1]]
 
         if closest.empty:
@@ -27,7 +25,7 @@ def death_zone_stats(player_name):
         x = closest.iloc[0]["X"]
         y = closest.iloc[0]["Y"]
 
-        zone = get_zone("de_inferno", x, y)
+        zone = get_zone(map_name, x, y)
 
         zones.append(zone)
 
