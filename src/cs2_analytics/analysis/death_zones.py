@@ -1,6 +1,6 @@
 import pandas as pd
 
-from utils.map_zones_awpy import get_zone
+from cs2_analytics.utils.maps import get_zone
 
 
 def death_zone_stats(player_name):

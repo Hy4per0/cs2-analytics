@@ -1,4 +1,4 @@
-from analysis.reaction_time_advanced import reaction_time_advanced
+from cs2_analytics.analysis.reaction_time_advanced import reaction_time_advanced
 from cs2_analytics.parser.parse_demo import parse_demo
 from cs2_analytics.parser.tick_dataset import generate_tick_dataset
 
