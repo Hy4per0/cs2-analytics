@@ -1,0 +1,34 @@
+# Virtual environments
+.venv/
+scripts/
+.uv-cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Project data (regenerable)
+parsed/
+runs/
+vision/clips/
+vision/frames/
+vision/dataset/
+
+# Demo files (large; may contain personal data)
+demos/*.dem
+
+# Models
+yolo11s-seg.pt
+
+# IDE / editor
+.idea/
+.vscode/
+.env
+.DS_Store
+Thumbs.db
