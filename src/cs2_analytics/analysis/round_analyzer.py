@@ -1,9 +1,8 @@
-import pandas as pd
+from cs2_analytics.data.repository import ParsedDataRepository
 
 
-def analyze_rounds():
-
-    kills = pd.read_parquet("parsed/kills.parquet")
+def analyze_rounds(repo: ParsedDataRepository) -> None:
+    kills = repo.get_kills()
 
     print("Total kills:", len(kills))
 
