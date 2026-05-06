@@ -1,15 +1,13 @@
 import matplotlib.pyplot as plt
-import pandas as pd
 from awpy.plot import heatmap
 
+from cs2_analytics.data.repository import ParsedDataRepository
 
-def player_heatmap_map(player_name, map_name):
 
-    ticks = pd.read_parquet("parsed/ticks.parquet")
-
+def player_heatmap_map(repo: ParsedDataRepository, player_name: str, map_name: str) -> None:
+    """Render a KDE heatmap of a player's positions on a given map."""
+    ticks = repo.get_ticks()
     player_data = ticks[ticks["name"] == player_name].copy()
-
-    # Prepare points as list of (X, Y, Z) tuples
     points = list(player_data[["X", "Y", "Z"]].itertuples(index=False, name=None))
 
     fig, ax = heatmap(
@@ -18,9 +16,8 @@ def player_heatmap_map(player_name, map_name):
         method="kde",
         cmap="inferno",
         alpha=0.6,
-        kde_lower_bound=0.01,  # Adjust as needed for better visibility
+        kde_lower_bound=0.01,
     )
 
     plt.title(f"Heatmap - {player_name}")
-
     plt.show()
