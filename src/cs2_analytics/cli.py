@@ -10,6 +10,9 @@ from cs2_analytics.analysis.round_analyzer import analyze_rounds
 from cs2_analytics.data.repository import ParsedDataRepository
 from cs2_analytics.parser.parse_demo import parse_demo
 from cs2_analytics.parser.tick_dataset import generate_tick_dataset
+from cs2_analytics.vision.build_dataset import build_dataset
+from cs2_analytics.vision.frame_extractor import extract_frames
+from cs2_analytics.visualization.heatmap import player_heatmap_map
 
 
 def _add_parse(sub: argparse._SubParsersAction) -> None:
@@ -117,12 +120,64 @@ def _handle_analyze_reaction_time(args: argparse.Namespace) -> int:
     return 0
 
 
-def _stub(name: str):
-    def handler(args: argparse.Namespace) -> int:
-        print(f"{name} subcommand not yet wired")
-        return 0
+def _add_visualize(sub: argparse._SubParsersAction) -> None:
+    p = sub.add_parser("visualize", help="Render visualizations from parsed data")
+    p.add_argument(
+        "--parsed-dir",
+        type=Path,
+        default=Path("parsed"),
+        help="Directory containing parquet files (default: parsed/)",
+    )
+    leaf = p.add_subparsers(dest="visualize_command", required=True)
 
-    return handler
+    hm = leaf.add_parser("heatmap", help="Per-player KDE heatmap on a map")
+    hm.add_argument("--player", required=True, help="Player name")
+    hm.add_argument("--map", dest="map_name", required=True, help="Map name")
+    hm.set_defaults(handler=_handle_visualize_heatmap)
+
+
+def _handle_visualize_heatmap(args: argparse.Namespace) -> int:
+    repo = ParsedDataRepository(args.parsed_dir)
+    player_heatmap_map(repo, args.player, args.map_name)
+    return 0
+
+
+def _add_vision(sub: argparse._SubParsersAction) -> None:
+    p = sub.add_parser("vision", help="Computer vision pipeline")
+    leaf = p.add_subparsers(dest="vision_command", required=True)
+
+    ex = leaf.add_parser("extract", help="Extract frames from clips")
+    ex.add_argument("clips_dir", type=Path, help="Directory of input .mp4 clips")
+    ex.add_argument(
+        "--out", type=Path, default=Path("vision/frames"), help="Output frames dir"
+    )
+    ex.add_argument("--fps", type=int, default=5, help="Frames per second to extract")
+    ex.set_defaults(handler=_handle_vision_extract)
+
+    bd = leaf.add_parser(
+        "build-dataset", help="Build the YOLO training dataset from labeled frames"
+    )
+    bd.set_defaults(handler=_handle_vision_build_dataset)
+
+
+def _handle_vision_extract(args: argparse.Namespace) -> int:
+    clips_dir: Path = args.clips_dir
+    out_dir: Path = args.out
+    if not clips_dir.is_dir():
+        print(f"error: clips_dir is not a directory: {clips_dir}", file=sys.stderr)
+        return 2
+    out_dir.mkdir(parents=True, exist_ok=True)
+    count = 0
+    for clip in sorted(clips_dir.glob("*.mp4")):
+        extract_frames(str(clip), str(out_dir / clip.stem), fps=args.fps)
+        count += 1
+    print(f"extracted frames from {count} clip(s) into {out_dir}")
+    return 0
+
+
+def _handle_vision_build_dataset(args: argparse.Namespace) -> int:
+    build_dataset()
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -135,10 +190,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_parse(sub)
     _add_ticks(sub)
     _add_analyze(sub)
-    sub.add_parser("visualize", help="Render visualizations from parsed data").set_defaults(
-        handler=_stub("visualize")
-    )
-    sub.add_parser("vision", help="Computer vision pipeline").set_defaults(handler=_stub("vision"))
+    _add_visualize(sub)
+    _add_vision(sub)
 
     return parser
 
