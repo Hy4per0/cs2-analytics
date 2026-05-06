@@ -1,10 +1,9 @@
-import pandas as pd
+from cs2_analytics.data.repository import ParsedDataRepository
 
 
-def reaction_time(player_name):
-
-    fires = pd.read_parquet("parsed/weapon_fire.parquet")
-    kills = pd.read_parquet("parsed/kills.parquet")
+def reaction_time(repo: ParsedDataRepository, player_name: str) -> None:
+    fires = repo.get_weapon_fire()
+    kills = repo.get_kills()
 
     player_fires = fires[fires["user_name"] == player_name]
 
@@ -17,7 +16,6 @@ def reaction_time(player_name):
         if attacker != player_name:
             continue
 
-        # pierwszy strzał przed killem
         shots = player_fires[player_fires["tick"] <= tick]
 
         if shots.empty:

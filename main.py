@@ -27,4 +27,4 @@ repo.save_ticks(generate_tick_dataset(demo_path))
 
 # reaction_time("AngelsHy4per")
 
-reaction_time_advanced("AngelsHy4per")
+reaction_time_advanced(repo, "AngelsHy4per")

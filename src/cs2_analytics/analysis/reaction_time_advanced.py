@@ -1,6 +1,6 @@
 import math
 
-import pandas as pd
+from cs2_analytics.data.repository import ParsedDataRepository
 
 
 def angle_between(p1x, p1y, p2x, p2y):
@@ -14,10 +14,9 @@ def angle_diff(a, b):
     return min(diff, 360 - diff)
 
 
-def reaction_time_advanced(player_name):
-
-    ticks = pd.read_parquet("parsed/ticks.parquet")
-    fires = pd.read_parquet("parsed/weapon_fire.parquet")
+def reaction_time_advanced(repo: ParsedDataRepository, player_name: str) -> None:
+    ticks = repo.get_ticks()
+    fires = repo.get_weapon_fire()
 
     player_ticks = ticks[ticks["name"] == player_name]
 
