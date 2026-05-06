@@ -14,7 +14,7 @@ for name, df in parse_demo(demo_path).items():
 # analyze_rounds()
 
 # generate tick dataset (with sampling)
-generate_tick_dataset(demo_path, output_dir)
+repo.save_ticks(generate_tick_dataset(demo_path))
 
 # # Example usage of heatmap and death zone analysis
 # player_heatmap_map("AngelsHy4per", "de_inferno")
