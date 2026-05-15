@@ -14,9 +14,11 @@ def angle_diff(a, b):
     return min(diff, 360 - diff)
 
 
-def reaction_time_advanced(repo: ParsedDataRepository, player_name: str) -> None:
-    ticks = repo.get_ticks()
-    fires = repo.get_weapon_fire()
+def reaction_time_advanced(
+    repo: ParsedDataRepository, player_name: str, demo_id: str | None = None
+) -> None:
+    ticks = repo.get_ticks(demo_id=demo_id)
+    fires = repo.get_weapon_fire(demo_id=demo_id)
 
     player_ticks = ticks[ticks["name"] == player_name]
 

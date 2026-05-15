@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 
@@ -31,6 +33,7 @@ def test_every_subcommand_help_exits_zero() -> None:
 
     for argv in (
         ["parse", "--help"],
+        ["parse-batch", "--help"],
         ["ticks", "--help"],
         ["analyze", "rounds", "--help"],
         ["analyze", "death-zones", "--help"],
@@ -43,3 +46,23 @@ def test_every_subcommand_help_exits_zero() -> None:
         with pytest.raises(SystemExit) as exc:
             main(argv)
         assert exc.value.code == 0, f"failed for argv={argv}"
+
+
+def test_parse_writes_nested_layout_and_blocks_overwrite(tmp_path: Path) -> None:
+    from cs2_analytics.cli import main
+
+    demo = Path("demos/13-03-2026_Inf_3Stack.dem")
+    if not demo.exists():
+        pytest.skip("real demo file not present in this checkout")
+
+    parsed = tmp_path / "parsed"
+    rc = main(["parse", str(demo), "--output-dir", str(parsed)])
+    assert rc == 0
+    assert (parsed / demo.stem / "kills.parquet").exists()
+    assert (parsed / demo.stem / "rounds.parquet").exists()
+
+    rc2 = main(["parse", str(demo), "--output-dir", str(parsed)])
+    assert rc2 == 2  # without --force
+
+    rc3 = main(["parse", str(demo), "--output-dir", str(parsed), "--force"])
+    assert rc3 == 0
