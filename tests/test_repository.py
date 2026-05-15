@@ -69,7 +69,9 @@ def test_all_table_methods_roundtrip(tmp_path: Path) -> None:
         assert (loaded["demo_id"] == "d1").all()
 
 
-def test_analyze_rounds_handles_empty_store(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_analyze_rounds_handles_empty_store(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     from cs2_analytics.analysis.round_analyzer import analyze_rounds
 
     repo = ParsedDataRepository(tmp_path)

@@ -45,6 +45,7 @@ def test_parse_force_overwrites(
     tmp_path: Path, monkeypatch
 ) -> None:
     import pandas as pd
+
     from cs2_analytics import cli as cli_mod
 
     parsed = tmp_path / "parsed"
@@ -64,6 +65,7 @@ def test_ticks_refuses_when_ticks_parquet_exists(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch
 ) -> None:
     import pandas as pd
+
     from cs2_analytics import cli as cli_mod
 
     parsed = tmp_path / "parsed"
@@ -85,6 +87,7 @@ def test_ticks_runs_when_demo_dir_exists_but_no_ticks_yet(
     tmp_path: Path, monkeypatch
 ) -> None:
     import pandas as pd
+
     from cs2_analytics import cli as cli_mod
 
     parsed = tmp_path / "parsed"
@@ -105,6 +108,7 @@ def test_parse_batch_skips_existing_and_parses_missing(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch
 ) -> None:
     import pandas as pd
+
     from cs2_analytics import cli as cli_mod
 
     demos_dir = tmp_path / "demos"
@@ -133,6 +137,7 @@ def test_parse_batch_skips_existing_and_parses_missing(
 
 def test_parse_batch_no_ticks_flag(tmp_path: Path, monkeypatch) -> None:
     import pandas as pd
+
     from cs2_analytics import cli as cli_mod
 
     demos_dir = tmp_path / "demos"
@@ -160,6 +165,7 @@ def test_parse_batch_continues_after_failure(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch
 ) -> None:
     import pandas as pd
+
     from cs2_analytics import cli as cli_mod
 
     demos_dir = tmp_path / "demos"
