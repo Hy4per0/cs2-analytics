@@ -4,9 +4,14 @@ from cs2_analytics.data.repository import ParsedDataRepository
 from cs2_analytics.utils.maps import get_zone
 
 
-def death_zone_stats(repo: ParsedDataRepository, player_name: str, map_name: str) -> None:
-    kills = repo.get_kills()
-    ticks = repo.get_ticks()
+def death_zone_stats(
+    repo: ParsedDataRepository,
+    player_name: str,
+    map_name: str,
+    demo_id: str | None = None,
+) -> None:
+    kills = repo.get_kills(demo_id=demo_id)
+    ticks = repo.get_ticks(demo_id=demo_id)
 
     deaths = kills[kills["user_name"] == player_name]
 

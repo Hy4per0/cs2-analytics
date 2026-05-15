@@ -162,6 +162,12 @@ def _add_analyze(sub: argparse._SubParsersAction) -> None:
         default=Path("parsed"),
         help="Directory containing parquet files (default: parsed/)",
     )
+    p.add_argument(
+        "--demo",
+        dest="demo_id",
+        default=None,
+        help="Restrict analysis to a single demo by its stem. Default: all demos.",
+    )
     leaf = p.add_subparsers(dest="analyze_command", required=True)
 
     rounds = leaf.add_parser("rounds", help="Round-by-round summary stats")
@@ -192,28 +198,44 @@ def _add_analyze(sub: argparse._SubParsersAction) -> None:
 
 def _handle_analyze_rounds(args: argparse.Namespace) -> int:
     repo = ParsedDataRepository(args.parsed_dir)
-    analyze_rounds(repo)
+    try:
+        analyze_rounds(repo, demo_id=args.demo_id)
+    except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 
 def _handle_analyze_death_zones(args: argparse.Namespace) -> int:
     repo = ParsedDataRepository(args.parsed_dir)
-    death_zone_stats(repo, args.player, args.map_name)
+    try:
+        death_zone_stats(repo, args.player, args.map_name, demo_id=args.demo_id)
+    except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 
 def _handle_analyze_entry_kills(args: argparse.Namespace) -> int:
     repo = ParsedDataRepository(args.parsed_dir)
-    entry_kill_stats(repo)
+    try:
+        entry_kill_stats(repo, demo_id=args.demo_id)
+    except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 
 def _handle_analyze_reaction_time(args: argparse.Namespace) -> int:
     repo = ParsedDataRepository(args.parsed_dir)
-    if args.advanced:
-        reaction_time_advanced(repo, args.player)
-    else:
-        reaction_time(repo, args.player)
+    try:
+        if args.advanced:
+            reaction_time_advanced(repo, args.player, demo_id=args.demo_id)
+        else:
+            reaction_time(repo, args.player, demo_id=args.demo_id)
+    except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -225,6 +247,12 @@ def _add_visualize(sub: argparse._SubParsersAction) -> None:
         default=Path("parsed"),
         help="Directory containing parquet files (default: parsed/)",
     )
+    p.add_argument(
+        "--demo",
+        dest="demo_id",
+        default=None,
+        help="Restrict visualization to a single demo by its stem. Default: all demos.",
+    )
     leaf = p.add_subparsers(dest="visualize_command", required=True)
 
     hm = leaf.add_parser("heatmap", help="Per-player KDE heatmap on a map")
@@ -235,7 +263,11 @@ def _add_visualize(sub: argparse._SubParsersAction) -> None:
 
 def _handle_visualize_heatmap(args: argparse.Namespace) -> int:
     repo = ParsedDataRepository(args.parsed_dir)
-    player_heatmap_map(repo, args.player, args.map_name)
+    try:
+        player_heatmap_map(repo, args.player, args.map_name, demo_id=args.demo_id)
+    except FileNotFoundError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 

@@ -4,9 +4,14 @@ from awpy.plot import heatmap
 from cs2_analytics.data.repository import ParsedDataRepository
 
 
-def player_heatmap_map(repo: ParsedDataRepository, player_name: str, map_name: str) -> None:
+def player_heatmap_map(
+    repo: ParsedDataRepository,
+    player_name: str,
+    map_name: str,
+    demo_id: str | None = None,
+) -> None:
     """Render a KDE heatmap of a player's positions on a given map."""
-    ticks = repo.get_ticks()
+    ticks = repo.get_ticks(demo_id=demo_id)
     player_data = ticks[ticks["name"] == player_name].copy()
     points = list(player_data[["X", "Y", "Z"]].itertuples(index=False, name=None))
 

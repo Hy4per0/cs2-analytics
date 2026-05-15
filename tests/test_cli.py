@@ -184,3 +184,23 @@ def test_parse_batch_continues_after_failure(
     assert "fail: a" in out
     assert "parse: b" in out
     assert "1 parsed, 0 skipped, 1 failed" in out
+
+
+def test_analyze_demo_missing_returns_nonzero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from cs2_analytics import cli as cli_mod
+
+    rc = cli_mod.main(
+        [
+            "analyze",
+            "--parsed-dir",
+            str(tmp_path / "parsed"),
+            "--demo",
+            "nope",
+            "rounds",
+        ]
+    )
+    assert rc != 0
+    err = capsys.readouterr().err
+    assert "nope" in err

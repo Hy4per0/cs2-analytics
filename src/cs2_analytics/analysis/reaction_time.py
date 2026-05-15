@@ -1,9 +1,11 @@
 from cs2_analytics.data.repository import ParsedDataRepository
 
 
-def reaction_time(repo: ParsedDataRepository, player_name: str) -> None:
-    fires = repo.get_weapon_fire()
-    kills = repo.get_kills()
+def reaction_time(
+    repo: ParsedDataRepository, player_name: str, demo_id: str | None = None
+) -> None:
+    fires = repo.get_weapon_fire(demo_id=demo_id)
+    kills = repo.get_kills(demo_id=demo_id)
 
     player_fires = fires[fires["user_name"] == player_name]
 
