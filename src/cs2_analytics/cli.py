@@ -66,12 +66,27 @@ def _add_ticks(sub: argparse._SubParsersAction) -> None:
         default=16,
         help="Keep every Nth tick (default: 16)",
     )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite parsed/<demo-stem>/ticks.parquet if it already exists.",
+    )
     p.set_defaults(handler=_handle_ticks)
 
 
 def _handle_ticks(args: argparse.Namespace) -> int:
     repo = ParsedDataRepository(args.output_dir)
-    repo.save_ticks(generate_tick_dataset(str(args.demo), sample_rate=args.sample_rate))
+    demo_id = args.demo.stem
+    ticks_path = args.output_dir / demo_id / "ticks.parquet"
+    if ticks_path.exists() and not args.force:
+        print(
+            f"error: {ticks_path} already exists. "
+            f"Pass --force to overwrite, or delete the file.",
+            file=sys.stderr,
+        )
+        return 2
+    repo.save_ticks(demo_id, generate_tick_dataset(str(args.demo), sample_rate=args.sample_rate))
+    print(f"wrote {ticks_path}")
     return 0
 
 
