@@ -67,3 +67,12 @@ def test_all_table_methods_roundtrip(tmp_path: Path) -> None:
         loaded = getattr(repo, f"get_{name}")(demo_id="d1")
         assert list(loaded["col"]) == [1, 2, 3]
         assert (loaded["demo_id"] == "d1").all()
+
+
+def test_analyze_rounds_handles_empty_store(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from cs2_analytics.analysis.round_analyzer import analyze_rounds
+
+    repo = ParsedDataRepository(tmp_path)
+    analyze_rounds(repo)  # must not raise
+    out = capsys.readouterr().out
+    assert "Total kills: 0" in out
