@@ -25,13 +25,28 @@ def _add_parse(sub: argparse._SubParsersAction) -> None:
         default=Path("parsed"),
         help="Directory to write parquet files (default: parsed/)",
     )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite parsed/<demo-stem>/ if it already exists.",
+    )
     p.set_defaults(handler=_handle_parse)
 
 
 def _handle_parse(args: argparse.Namespace) -> int:
     repo = ParsedDataRepository(args.output_dir)
+    demo_id = args.demo.stem
+    if repo.demo_exists(demo_id) and not args.force:
+        print(
+            f"error: {args.output_dir / demo_id}/ already exists. "
+            f"Pass --force to overwrite, or delete the directory.",
+            file=sys.stderr,
+        )
+        return 2
     for name, df in parse_demo(str(args.demo)).items():
-        getattr(repo, f"save_{name}")(df)
+        getattr(repo, f"save_{name}")(demo_id, df)
+        print(f"wrote {args.output_dir / demo_id / (name + '.parquet')}")
+    print(f"parsed: {demo_id}")
     return 0
 
 
