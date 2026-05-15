@@ -29,15 +29,17 @@ All operations:
 ```powershell
 uv run cs2-analytics --help                                                      # list subcommands
 
-# Parsing (demo → parquet)
-uv run cs2-analytics parse demos/<file>.dem [--output-dir parsed/]
-uv run cs2-analytics ticks demos/<file>.dem [--output-dir parsed/] [--sample-rate 16]
+# Parsing (demo → parquet, per-demo store)
+uv run cs2-analytics parse demos/<file>.dem [--output-dir parsed/] [--force]
+uv run cs2-analytics ticks demos/<file>.dem [--output-dir parsed/] [--sample-rate 16] [--force]
+uv run cs2-analytics parse-batch demos/ [--output-dir parsed/] [--force] [--no-ticks]
 
 # Analysis (over parsed parquet — parse+ticks must run first)
-uv run cs2-analytics analyze rounds
-uv run cs2-analytics analyze death-zones --player <name> --map <map>
-uv run cs2-analytics analyze entry-kills
-uv run cs2-analytics analyze reaction-time --player <name> [--advanced]
+# Defaults to ALL demos in parsed/; --demo <stem> restricts to one.
+uv run cs2-analytics analyze [--demo <stem>] rounds
+uv run cs2-analytics analyze [--demo <stem>] death-zones --player <name> --map <map>
+uv run cs2-analytics analyze [--demo <stem>] entry-kills
+uv run cs2-analytics analyze [--demo <stem>] reaction-time --player <name> [--advanced]
 
 # Visualization
 uv run cs2-analytics visualize heatmap --player <name> --map <map>
@@ -93,14 +95,16 @@ Tests live in `tests/`. Output / data folders (`parsed/`, `runs/`, `vision/clips
 ## Data flow
 
 ```
-demos/*.dem ──► parse_demo  ─────► (DataFrames) ──► repo.save_kills/damage/rounds/weapon_fire
-            ╲
-             ╲► tick_dataset ─────► (DataFrame) ──► repo.save_ticks
-                                                        │
-                              parsed/*.parquet ◄────────┘
-                                    │
-                                    ▼
-                         repo.get_kills/damage/rounds/weapon_fire/ticks
+demos/*.dem ──► parse_demo  ─────► (DataFrames) ──► repo.save_kills(demo_id, ...)
+            ╲                                        repo.save_damage(...)
+             ╲                                       repo.save_rounds(...)
+             ╲                                       repo.save_weapon_fire(...)
+             ╲► tick_dataset ─────► (DataFrame) ──► repo.save_ticks(demo_id, ...)
+                                                          │
+                              parsed/<demo-stem>/*.parquet
+                                                          │
+                                                          ▼
+                                  repo.get_kills(demo_id=None|"X")  → DataFrame w/ demo_id col
                                     │
                   ┌─────────────────┼─────────────────┐
                   ▼                 ▼                 ▼
@@ -118,6 +122,7 @@ Analysis and visualization modules **never** call `pd.read_parquet` or construct
 ## Module conventions
 
 - **Real packages with `__init__.py` files.** No more namespace-package quirks; imports work from anywhere.
+- **Storage is per-demo.** `parsed/<demo-stem>/<table>.parquet`. Every `repo.save_*` takes a `demo_id` argument; every `repo.get_*` accepts an optional `demo_id` (defaults to aggregating across all demos and adding a `demo_id` column).
 - **All analyses take `(repo, ...)` as their first argument.** Adding a new analysis means adding a new file under `cs2_analytics/analysis/` and registering one entry in `cli.py`'s analyze dispatch (OCP).
 - **Player identity is matched by name string** (e.g. `"AngelsHy4per"`) across `kills.user_name`, `kills.attacker_name`, `ticks.name`, `weapon_fire.user_name`. There is no steam-id join. Migrating to SteamID is a known future concern (not on the foundation).
 - **Tick alignment** between events and `ticks.parquet` is approximate — events fire on every tick, but `ticks.parquet` only stores every 16th tick by default. `analysis/death_zones.py` handles this by finding the closest tick; `analysis/reaction_time_advanced.py` does an exact match and silently drops events that fall on unsampled ticks.
