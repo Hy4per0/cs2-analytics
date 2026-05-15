@@ -90,6 +90,70 @@ def _handle_ticks(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_parse_batch(sub: argparse._SubParsersAction) -> None:
+    p = sub.add_parser(
+        "parse-batch",
+        help="Parse every .dem in a directory; skip demos already in the store.",
+    )
+    p.add_argument("demos_dir", type=Path, help="Directory containing .dem files")
+    p.add_argument(
+        "--output-dir",
+        "-o",
+        type=Path,
+        default=Path("parsed"),
+        help="Directory to write parquet files (default: parsed/)",
+    )
+    p.add_argument(
+        "--sample-rate",
+        type=int,
+        default=16,
+        help="Tick sample rate (default: 16). Ignored if --no-ticks.",
+    )
+    p.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-parse every demo even if its dir already exists.",
+    )
+    p.add_argument(
+        "--no-ticks",
+        action="store_true",
+        help="Skip the tick-dataset stage for each demo.",
+    )
+    p.set_defaults(handler=_handle_parse_batch)
+
+
+def _handle_parse_batch(args: argparse.Namespace) -> int:
+    demos_dir: Path = args.demos_dir
+    if not demos_dir.is_dir():
+        print(f"error: demos_dir is not a directory: {demos_dir}", file=sys.stderr)
+        return 2
+
+    repo = ParsedDataRepository(args.output_dir)
+    parsed_count = skipped_count = failed_count = 0
+
+    for demo in sorted(demos_dir.glob("*.dem")):
+        demo_id = demo.stem
+        if repo.demo_exists(demo_id) and not args.force:
+            print(f"skip: {demo_id} (already parsed)")
+            skipped_count += 1
+            continue
+        try:
+            for name, df in parse_demo(str(demo)).items():
+                getattr(repo, f"save_{name}")(demo_id, df)
+            if not args.no_ticks:
+                repo.save_ticks(
+                    demo_id, generate_tick_dataset(str(demo), sample_rate=args.sample_rate)
+                )
+            print(f"parse: {demo_id}")
+            parsed_count += 1
+        except Exception as exc:  # noqa: BLE001 — surface any parser failure per-demo
+            print(f"fail: {demo_id} ({exc.__class__.__name__}: {exc})")
+            failed_count += 1
+
+    print(f"parse-batch: {parsed_count} parsed, {skipped_count} skipped, {failed_count} failed")
+    return 0 if failed_count == 0 else 1
+
+
 def _add_analyze(sub: argparse._SubParsersAction) -> None:
     p = sub.add_parser("analyze", help="Run analysis on parsed data")
     p.add_argument(
@@ -221,6 +285,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     _add_parse(sub)
+    _add_parse_batch(sub)
     _add_ticks(sub)
     _add_analyze(sub)
     _add_visualize(sub)

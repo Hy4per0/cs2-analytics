@@ -99,3 +99,88 @@ def test_ticks_runs_when_demo_dir_exists_but_no_ticks_yet(
     rc = cli_mod.main(["ticks", str(demo), "--output-dir", str(parsed)])
     assert rc == 0
     assert (parsed / "fake" / "ticks.parquet").exists()
+
+
+def test_parse_batch_skips_existing_and_parses_missing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch
+) -> None:
+    import pandas as pd
+    from cs2_analytics import cli as cli_mod
+
+    demos_dir = tmp_path / "demos"
+    demos_dir.mkdir()
+    (demos_dir / "a.dem").write_bytes(b"x")
+    (demos_dir / "b.dem").write_bytes(b"x")
+
+    parsed = tmp_path / "parsed"
+    (parsed / "a").mkdir(parents=True)  # 'a' already parsed
+    (parsed / "a" / "ticks.parquet").write_bytes(b"x")  # has ticks too
+
+    monkeypatch.setattr(cli_mod, "parse_demo", lambda _p: {"kills": pd.DataFrame({"x": [1]})})
+    monkeypatch.setattr(
+        cli_mod, "generate_tick_dataset", lambda _p, sample_rate=16: pd.DataFrame({"t": [1]})
+    )
+
+    rc = cli_mod.main(["parse-batch", str(demos_dir), "--output-dir", str(parsed)])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "skip: a" in out
+    assert "parse: b" in out
+    assert "1 parsed, 1 skipped, 0 failed" in out
+    assert (parsed / "b" / "kills.parquet").exists()
+    assert (parsed / "b" / "ticks.parquet").exists()
+
+
+def test_parse_batch_no_ticks_flag(tmp_path: Path, monkeypatch) -> None:
+    import pandas as pd
+    from cs2_analytics import cli as cli_mod
+
+    demos_dir = tmp_path / "demos"
+    demos_dir.mkdir()
+    (demos_dir / "a.dem").write_bytes(b"x")
+    parsed = tmp_path / "parsed"
+
+    monkeypatch.setattr(cli_mod, "parse_demo", lambda _p: {"kills": pd.DataFrame({"x": [1]})})
+    called = {"ticks": False}
+
+    def fake_ticks(_p, sample_rate=16):
+        called["ticks"] = True
+        return pd.DataFrame({"t": [1]})
+
+    monkeypatch.setattr(cli_mod, "generate_tick_dataset", fake_ticks)
+
+    rc = cli_mod.main(
+        ["parse-batch", str(demos_dir), "--output-dir", str(parsed), "--no-ticks"]
+    )
+    assert rc == 0
+    assert called["ticks"] is False
+
+
+def test_parse_batch_continues_after_failure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch
+) -> None:
+    import pandas as pd
+    from cs2_analytics import cli as cli_mod
+
+    demos_dir = tmp_path / "demos"
+    demos_dir.mkdir()
+    (demos_dir / "a.dem").write_bytes(b"x")
+    (demos_dir / "b.dem").write_bytes(b"x")
+    parsed = tmp_path / "parsed"
+
+    def flaky_parse(p):
+        if "a.dem" in p:
+            raise RuntimeError("boom")
+        return {"kills": pd.DataFrame({"x": [1]})}
+
+    monkeypatch.setattr(cli_mod, "parse_demo", flaky_parse)
+    monkeypatch.setattr(
+        cli_mod, "generate_tick_dataset", lambda _p, sample_rate=16: pd.DataFrame({"t": [1]})
+    )
+
+    rc = cli_mod.main(["parse-batch", str(demos_dir), "--output-dir", str(parsed)])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "fail: a" in out
+    assert "parse: b" in out
+    assert "1 parsed, 0 skipped, 1 failed" in out

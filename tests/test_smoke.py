@@ -31,6 +31,7 @@ def test_every_subcommand_help_exits_zero() -> None:
 
     for argv in (
         ["parse", "--help"],
+        ["parse-batch", "--help"],
         ["ticks", "--help"],
         ["analyze", "rounds", "--help"],
         ["analyze", "death-zones", "--help"],
